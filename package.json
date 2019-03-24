@@ -1,0 +1,29 @@
+{
+  "name": "redis-json",
+  "version": "0.0.1",
+  "description": "a library to manupulate json strings directly in redis",
+  "main": "src/index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "mocha"
+  },
+  "keywords": [
+    "json",
+    "redis",
+    "lua",
+    "script"
+  ],
+  "author": "aikei",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/redis": "^2.8.11",
+    "bluebird": "^3.5.3",
+    "expect.js": "^0.3.1",
+    "mocha": "^6.0.2"
+  },
+  "dependencies": {
+    "redis": "^2.8.0"
+  }
+}
