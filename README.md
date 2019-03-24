@@ -1,4 +1,4 @@
-# redis-json
+# redis-json-set
 
 A library to manipulate json strings directly in redis.
 
@@ -19,10 +19,16 @@ So, how to solve it? The only way to do it, is to change json directly in redis,
 
 ## Usage
 
+Install library:
+
+```
+npm i redis-json-set
+```
+
 First create a new redisJson object:
 
 ```javascript
-const RedisJson = require("redis-json");
+const RedisJson = require("redis-json-set");
 
 const redisJson = new RedisJson(); // this will use default redis connection settings
 
@@ -129,7 +135,7 @@ json gigantic-object: 5000 keys: completed 1089 redisJson.setKey operations with
 redis-with-json-parse gigantic-object: 5000 keys: completed 782 (get - parse - stringify - set) operations within 5000ms
 ```
 
-As you can see from the tests, `redis-json` is almost always faster. Only with very big objects stored in redis it gets slower than that, but then most time is taken by regex, which seem to be faster in node than in redis's lua. But even then if you always parse you data from redis, it will still be slower.
+As you can see from the tests, `redis-json-set` is almost always faster. Only with very big objects stored in redis it gets slower than that, but then most time is taken by regex, which seem to be faster in node than in redis's lua. But even then if you always parse you data from redis, it will still be slower.
 
 A new command to let you change multiple keys at once in redis is currently in the works.
 

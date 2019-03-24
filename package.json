@@ -1,10 +1,14 @@
 {
-  "name": "redis-json",
+  "name": "redis-json-set",
   "version": "0.0.1",
   "description": "a library to manupulate json strings directly in redis",
   "main": "src/index.js",
   "directories": {
     "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aikei/redis-json.git"
   },
   "scripts": {
     "test": "mocha"
