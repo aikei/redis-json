@@ -5,3 +5,5 @@ before_install:
 
 node_js:
   - 10.15.3
+
+after_success: nyc npm test && nyc report --reporter=text-lcov | coveralls
