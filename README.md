@@ -13,7 +13,7 @@ A library to manipulate json strings directly in redis.
 
 ## Introduction
 
-Suppose you have to keep json string in redis for some reason (i.e. it might be inside a hash already and you can't really create deep structures in redis), and you want to change a single json key value. How do you do that? The first idea which comes to mind is to get data from redis, then parse object, change key, and set it back to redis. However, this approach has a number of disabvatages:
+Suppose you have to keep json string in redis for some reason (i.e. it might be inside a hash already and you can't really create deep structures in redis). And suppose you want to change value of a single json key. How do you do that? The first idea which comes to mind is to get data from redis, then parse object, change key, and set it back to redis. However, this approach has a number of disadvatages:
 
 1. Obviously, speed. If you have to do such operations often, there will be some overhead.
 2. Concurrency issues. Suppose you got your object from redis, then value of that object changed before you set it back to redis. Redis value will be overwritten with your value, losing the change which happened between your get and set operations.
@@ -136,6 +136,12 @@ redis-with-json-parse very-large-object: 500 keys: completed 6963 (get - parse -
 redis gigantic-object: 5000 keys: completed 2591 (get - regex replace - set) operations within 5000ms
 json gigantic-object: 5000 keys: completed 1089 redisJson.setKey operations within 5000ms
 redis-with-json-parse gigantic-object: 5000 keys: completed 782 (get - parse - stringify - set) operations within 5000ms
+```
+
+You can run this benchmark yourself with
+
+```bash
+node ./benchmark/redis-json-vs-normal.js
 ```
 
 As you can see from the tests, `redis-json-set` is almost always faster. Only with very big objects stored in redis it gets slower than that, but then most time is taken by regex, which seem to be faster in node than in redis's lua. But even then if you always parse you data from redis, it will still be slower.
