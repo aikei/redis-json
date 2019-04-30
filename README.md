@@ -1,6 +1,7 @@
 # redis-json-set
 
 [![Build Status](https://travis-ci.org/aikei/redis-json.svg?branch=master)](https://travis-ci.org/aikei/redis-json)
+[![Coverage Status](https://coveralls.io/repos/github/aikei/redis-json/badge.svg)](https://coveralls.io/github/aikei/redis-json)
 
 A library to manipulate json strings directly in redis.
 
