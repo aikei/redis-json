@@ -10,6 +10,7 @@ A library to manipulate json strings directly in redis.
 - [Tests](#unit-tests)
 - [Benchmark](#benchmark)
 - [Limitations](#limitations)
+- [Release Notes](#release-notes)
 
 ## Introduction
 
@@ -57,7 +58,15 @@ Now, to change json key value:
 redisClient.set("test-json-object", `{"foo":"bar","foo1":"bar1","foo2":2}`);
 const result = await redisJson.setKey("test-json-object", "foo2", "bar2");
 // now `"test-json-object"` is equal to {"foo":"bar","foo1":"bar1","foo2":"bar2"}
+```
 
+To change multiple values in the same json object at once:
+
+```javascript
+// suppose we have a json object at redis key `test-json-object`
+redisClient.set("test-json-object", `{"foo":"bar","foo1":"bar1","foo2":2}`);
+const result = await redisJson.setKey("test-json-object", "foo2", "bar2", "foo","barX);
+// now `"test-json-object"` is equal to {"foo":"barX","foo1":"bar1","foo2":"bar2"}
 ```
 
 Or, if json object is within a redis's hash field:
@@ -69,73 +78,209 @@ const result = await redisJson.setHashKey("hash-map", "key-1", "foo2", "bar2");
 // now json object is equal to {"foo":"bar","foo1":"bar1","foo2":"bar2"}
 ```
 
+To change multiple values in the same json object at once:
+
+```javascript
+// suppose we have a json object in hash key `hash-map` under key `key-1`
+redisClient.hset("hash-map", "key-1", `{"foo":"bar","foo1":"bar1","foo2":2}`);
+const result = await redisJson.setHashKey("hash-map", "key-1", "foo2", "bar2", "foo", "barX");
+// now json object is equal to {"foo":"barX","foo1":"bar1","foo2":"bar2"}
+```
+
 You can also use `incrKey` and `incrHashKey` methods to increase json key value by 1. Note that key value must be either a number or a string convertible to number for this to work:
 
 ```javascript
 // suppose we have a json object at redis key `test-json-object`
 redisClient.set("test-json-object", `{"foo":"bar","foo1":"bar1","foo2":2}`);
-const result = await redisJson.incrKey("test-json-object", "foo2");
+const result = await redisJson.incrKey("test-json-object", "foo2", 1);
 // now `"test-json-object"` is equal to {"foo":"bar","foo1":"bar1","foo2":3}
 
 // this also works
 redisClient.set("test-json-object", `{"foo":"bar","foo1":"bar1","foo2":"2"}`);
-const result = await redisJson.incrKey("test-json-object", "foo2");
+const result = await redisJson.incrKey("test-json-object", "foo2", 1);
 // now `"test-json-object"` is equal to {"foo":"bar","foo1":"bar1","foo2":"3"}
 
 // this works for hash keys
 redisClient.hset("hash-map", "key-1", `{"foo":"bar","foo1":"bar1","foo2":2}`);
-const result = await redisJson.incrHashKey("hash-map", "key-1", "foo2");
-// now json object is equal to {"foo":"bar","foo1":"bar1","foo2":"3"}
+const result = await redisJson.incrHashKey("hash-map", "key-1", "foo2", 1);
+// now json object is equal to {"foo":"bar","foo1":"bar1","foo2":3}
+
+// you can also specify value to increment other than 1
+redisClient.set("test-json-object", `{"foo":"bar","foo1":"bar1","foo2":2}`);
+const result = await redisJson.incrKey("test-json-object", "foo2", 2);
+// now `"test-json-object"` is equal to {"foo":"bar","foo1":"bar1","foo2":4}
+
+redisClient.hset("hash-map", "key-1", `{"foo":"bar","foo1":"bar1","foo2":2}`);
+const result = await redisJson.incrHashKey("hash-map", "key-1", "foo2", 2);
+// now json object is equal to {"foo":"bar","foo1":"bar1","foo2":4}
+```
+
+You can also increment multiple fields at once:
+
+```javascript
+redisClient.set("test-json-object", `{"foo":"bar","foo1":10,"foo2":2}`);
+const result = await redisJson.incrKey("test-json-object", "foo1", 10, "foo2", 1);
+// now `"test-json-object"` is equal to {"foo":"bar","foo1":20,"foo2":3}
+
+redisClient.hset("hash-map", "key-1", `{"foo":"bar","foo1":10,"foo2":2}`);
+const result = await redisJson.incrHashKey("hash-map", "key-1", "foo1", 10, "foo2", 2);
+// now json object is equal to {"foo":"bar","foo1":20,"foo2":4}
 ```
 
 ## Unit Tests
 
-You can run unit tests with `mocha`:
+You can run mocha unit tests with:
 
 ```bash
-mocha
-```
-
-You might need to install it globally first:
-
-```bash
-npm i -g mocha
+npm test
 ```
 
 You can see test coverage using `nyc` too:
 
 ```bash
-nyc mocha
+nyc npm test
 ```
 
 ## Benchmark
 
 Here are some results of a benchmark showing performance of
 
-1. redis - first get string from redis, then replace key with regular expression, then set it back to redis
-2. json - do this using `redisJson.setKey` command
+1. redis-with-regex - first get string from redis, then replace key with regular expression, then set it back to redis
+2. redis-json-set - do this using `redisJson.setKey` command
 3. redis-with-json-parse - first get string from redis, then parse it, then change key, then stringify and set back to redis.
 
+Benchmark was ran for 5 different object sizes while changing 1 to 5 keys at once:
+
 ```bash
-redis small-object: 3 keys: completed 33093 (get - regex replace - set) operations within 5000ms
-json small-object: 3 keys: completed 61082 redisJson.setKey operations within 5000ms
-redis-with-json-parse small-object: 3 keys: completed 34391 (get - parse - stringify - set) operations within 5000ms
+========= change 1 key(s) benchmark:
+? object size: 122 bytes
+redis-with-regex small-object: 3 keys: completed 44090 (get - regex replace - set) operations within 5000ms
+redis-json-set small-object: 3 keys: completed 71102 redisJson.setKey operations within 5000ms
+redis-with-json-parse small-object: 3 keys: completed 42421 (get - parse - stringify - set) operations within 5000ms
 ------------------------
-redis medium-object: 10 keys: completed 35608 (get - regex replace - set) operations within 5000ms
-json medium-object: 10 keys: completed 64239 redisJson.setKey operations within 5000ms
-redis-with-json-parse medium-object: 10 keys: completed 33460 (get - parse - stringify - set) operations within 5000ms
+? object size: 405 bytes
+redis-with-regex medium-object: 10 keys: completed 43191 (get - regex replace - set) operations within 5000ms
+redis-json-set medium-object: 10 keys: completed 67439 redisJson.setKey operations within 5000ms
+redis-with-json-parse medium-object: 10 keys: completed 41502 (get - parse - stringify - set) operations within 5000ms
 ------------------------
-redis large-object: 50 keys: completed 34133 (get - regex replace - set) operations within 5000ms
-json large-object: 50 keys: completed 45134 redisJson.setKey operations within 5000ms
-redis-with-json-parse large-object: 50 keys: completed 28803 (get - parse - stringify - set) operations within 5000ms
+? object size: 2027 bytes
+redis-with-regex large-object: 50 keys: completed 41161 (get - regex replace - set) operations within 5000ms
+redis-json-set large-object: 50 keys: completed 47193 redisJson.setKey operations within 5000ms
+redis-with-json-parse large-object: 50 keys: completed 31840 (get - parse - stringify - set) operations within 5000ms
 ------------------------
-redis very-large-object: 500 keys: completed 19552 (get - regex replace - set) operations within 5000ms
-json very-large-object: 500 keys: completed 17026 redisJson.setKey operations within 5000ms
-redis-with-json-parse very-large-object: 500 keys: completed 6963 (get - parse - stringify - set) operations within 5000ms
+? object size: 20250 bytes
+redis-with-regex very-large-object: 500 keys: completed 21401 (get - regex replace - set) operations within 5000ms
+redis-json-set very-large-object: 500 keys: completed 10069 redisJson.setKey operations within 5000ms
+redis-with-json-parse very-large-object: 500 keys: completed 7374 (get - parse - stringify - set) operations within 5000ms
 ------------------------
-redis gigantic-object: 5000 keys: completed 2591 (get - regex replace - set) operations within 5000ms
-json gigantic-object: 5000 keys: completed 1089 redisJson.setKey operations within 5000ms
-redis-with-json-parse gigantic-object: 5000 keys: completed 782 (get - parse - stringify - set) operations within 5000ms
+? object size: 202655 bytes
+redis-with-regex gigantic-object: 5000 keys: completed 2601 (get - regex replace - set) operations within 5000ms
+redis-json-set gigantic-object: 5000 keys: completed 1101 redisJson.setKey operations within 5000ms
+redis-with-json-parse gigantic-object: 5000 keys: completed 772 (get - parse - stringify - set) operations within 5000ms
+
+========= change 2 key(s) benchmark:
+? object size: 121 bytes
+redis-with-regex small-object: 3 keys: completed 44918 (get - regex replace - set) operations within 5000ms
+redis-json-set small-object: 3 keys: completed 70452 redisJson.setKey operations within 5000ms
+redis-with-json-parse small-object: 3 keys: completed 42301 (get - parse - stringify - set) operations within 5000ms
+------------------------
+? object size: 401 bytes
+redis-with-regex medium-object: 10 keys: completed 42406 (get - regex replace - set) operations within 5000ms
+redis-json-set medium-object: 10 keys: completed 61799 redisJson.setKey operations within 5000ms
+redis-with-json-parse medium-object: 10 keys: completed 37743 (get - parse - stringify - set) operations within 5000ms
+------------------------
+? object size: 2030 bytes
+redis-with-regex large-object: 50 keys: completed 38801 (get - regex replace - set) operations within 5000ms
+redis-json-set large-object: 50 keys: completed 34707 redisJson.setKey operations within 5000ms
+redis-with-json-parse large-object: 50 keys: completed 32044 (get - parse - stringify - set) operations within 5000ms
+------------------------
+? object size: 20261 bytes
+redis-with-regex very-large-object: 500 keys: completed 19687 (get - regex replace - set) operations within 5000ms
+redis-json-set very-large-object: 500 keys: completed 6007 redisJson.setKey operations within 5000ms
+redis-with-json-parse very-large-object: 500 keys: completed 7186 (get - parse - stringify - set) operations within 5000ms
+------------------------
+? object size: 202716 bytes
+redis-with-regex gigantic-object: 5000 keys: completed 2618 (get - regex replace - set) operations within 5000ms
+redis-json-set gigantic-object: 5000 keys: completed 599 redisJson.setKey operations within 5000ms
+redis-with-json-parse gigantic-object: 5000 keys: completed 746 (get - parse - stringify - set) operations within 5000ms
+
+========= change 3 key(s) benchmark:
+? object size: 125 bytes
+redis-with-regex small-object: 3 keys: completed 43826 (get - regex replace - set) operations within 5000ms
+redis-json-set small-object: 3 keys: completed 70103 redisJson.setKey operations within 5000ms
+redis-with-json-parse small-object: 3 keys: completed 42815 (get - parse - stringify - set) operations within 5000ms
+------------------------
+? object size: 407 bytes
+redis-with-regex medium-object: 10 keys: completed 42052 (get - regex replace - set) operations within 5000ms
+redis-json-set medium-object: 10 keys: completed 54396 redisJson.setKey operations within 5000ms
+redis-with-json-parse medium-object: 10 keys: completed 40553 (get - parse - stringify - set) operations within 5000ms
+------------------------
+? object size: 2029 bytes
+redis-with-regex large-object: 50 keys: completed 39055 (get - regex replace - set) operations within 5000ms
+redis-json-set large-object: 50 keys: completed 26965 redisJson.setKey operations within 5000ms
+redis-with-json-parse large-object: 50 keys: completed 30612 (get - parse - stringify - set) operations within 5000ms
+------------------------
+? object size: 20239 bytes
+redis-with-regex very-large-object: 500 keys: completed 17306 (get - regex replace - set) operations within 5000ms
+redis-json-set very-large-object: 500 keys: completed 4251 redisJson.setKey operations within 5000ms
+redis-with-json-parse very-large-object: 500 keys: completed 6880 (get - parse - stringify - set) operations within 5000ms
+------------------------
+? object size: 202693 bytes
+redis-with-regex gigantic-object: 5000 keys: completed 2564 (get - regex replace - set) operations within 5000ms
+redis-json-set gigantic-object: 5000 keys: completed 423 redisJson.setKey operations within 5000ms
+redis-with-json-parse gigantic-object: 5000 keys: completed 764 (get - parse - stringify - set) operations within 5000ms
+
+========= change 4 key(s) benchmark:
+? object size: 124 bytes
+redis-with-regex small-object: 3 keys: completed 41941 (get - regex replace - set) operations within 5000ms
+redis-json-set small-object: 3 keys: completed 64242 redisJson.setKey operations within 5000ms
+redis-with-json-parse small-object: 3 keys: completed 42480 (get - parse - stringify - set) operations within 5000ms
+------------------------
+? object size: 406 bytes
+redis-with-regex medium-object: 10 keys: completed 42356 (get - regex replace - set) operations within 5000ms
+redis-json-set medium-object: 10 keys: completed 52923 redisJson.setKey operations within 5000ms
+redis-with-json-parse medium-object: 10 keys: completed 40413 (get - parse - stringify - set) operations within 5000ms
+------------------------
+? object size: 2035 bytes
+redis-with-regex large-object: 50 keys: completed 37593 (get - regex replace - set) operations within 5000ms
+redis-json-set large-object: 50 keys: completed 22813 redisJson.setKey operations within 5000ms
+redis-with-json-parse large-object: 50 keys: completed 32103 (get - parse - stringify - set) operations within 5000ms
+------------------------
+? object size: 20261 bytes
+redis-with-regex very-large-object: 500 keys: completed 17872 (get - regex replace - set) operations within 5000ms
+redis-json-set very-large-object: 500 keys: completed 3323 redisJson.setKey operations within 5000ms
+redis-with-json-parse very-large-object: 500 keys: completed 7065 (get - parse - stringify - set) operations within 5000ms
+------------------------
+? object size: 202632 bytes
+redis-with-regex gigantic-object: 5000 keys: completed 1862 (get - regex replace - set) operations within 5000ms
+redis-json-set gigantic-object: 5000 keys: completed 325 redisJson.setKey operations within 5000ms
+redis-with-json-parse gigantic-object: 5000 keys: completed 764 (get - parse - stringify - set) operations within 5000ms
+
+========= change 5 key(s) benchmark:
+? object size: 125 bytes
+redis-with-regex small-object: 3 keys: completed 41876 (get - regex replace - set) operations within 5000ms
+redis-json-set small-object: 3 keys: completed 62949 redisJson.setKey operations within 5000ms
+redis-with-json-parse small-object: 3 keys: completed 42462 (get - parse - stringify - set) operations within 5000ms
+------------------------
+? object size: 406 bytes
+redis-with-regex medium-object: 10 keys: completed 40756 (get - regex replace - set) operations within 5000ms
+redis-json-set medium-object: 10 keys: completed 47596 redisJson.setKey operations within 5000ms
+redis-with-json-parse medium-object: 10 keys: completed 40634 (get - parse - stringify - set) operations within 5000ms
+------------------------
+? object size: 2035 bytes
+redis-with-regex large-object: 50 keys: completed 36898 (get - regex replace - set) operations within 5000ms
+redis-json-set large-object: 50 keys: completed 18643 redisJson.setKey operations within 5000ms
+redis-with-json-parse large-object: 50 keys: completed 31231 (get - parse - stringify - set) operations within 5000ms
+------------------------
+? object size: 20256 bytes
+redis-with-regex very-large-object: 500 keys: completed 19028 (get - regex replace - set) operations within 5000ms
+redis-json-set very-large-object: 500 keys: completed 2666 redisJson.setKey operations within 5000ms
+redis-with-json-parse very-large-object: 500 keys: completed 7226 (get - parse - stringify - set) operations within 5000ms
+------------------------
+? object size: 202756 bytes
+redis-with-regex gigantic-object: 5000 keys: completed 1642 (get - regex replace - set) operations within 5000ms
+redis-json-set gigantic-object: 5000 keys: completed 264 redisJson.setKey operations within 5000ms
+redis-with-json-parse gigantic-object: 5000 keys: completed 802 (get - parse - stringify - set) operations within 5000ms
 ```
 
 You can run this benchmark yourself with
@@ -144,12 +289,22 @@ You can run this benchmark yourself with
 node ./benchmark/redis-json-vs-normal.js
 ```
 
-As you can see from the tests, `redis-json-set` is almost always faster. Only with very big objects stored in redis it gets slower than that, but then most time is taken by regex, which seem to be faster in node than in redis's lua. But even then if you always parse you data from redis, it will still be slower.
-
-A new command to let you change multiple keys at once in redis is currently in the works.
+As you can see from the tests, `redis-json-set` is always faster when objects are not too big and (or) if you do not change multiple keys at the same time.
+    - If your object size is up to 500 bytes, `redis-json-set` is always faster than either of the two alternatives, even if you change 5 keys at a time.
+    - If you change just 1 key at a time, `redis-json-set` is faster than `get - json parse - json stringify - set` even for a very big object of size 200KB and faster than `get - RegEx replace - set` for an object of size 2KB.
+    - If you change 2 keys at a time, `redis-json-set` is faster than `get - json parse - json stringify - set` and has a comparable performance to `get - RegEx replace - set` for an object of size 2KB
 
 ## Limitations
 
-- You can only change one json key at a time
-- Json keys are matched by regex, and how deep key is nested does not matter. If you have multiple keys with same name in your json object, all will be set / incremented. So generally, you should avoid using this library if you have multiple keys with same names (e.g. arrays of instances of the same data class). This might be improved in future.
-- You can only increment keys by 1. This will be changed in future.
+- Json keys are matched by regex, and how deep the key is nested does not matter. That is, If you have multiple keys with same name in your json object, all will be set / incremented. So generally, you should avoid using this library if you have multiple keys with same names (for example, arrays of instances of the same data class). Another option might be to make sure one redis key contains only unique json keys.
+- You can only change values of json objects, but NOT arrays.
+
+## Release Notes
+
+### v0.1.0
+ - You can now set/increment multiple json keys at once.
+ - You can now increment by any value, not just 1.
+ - New benchmark data showing performance of setting more than 1 key at once, also added test object sizes.
+
+### v0.0.2
+ - First release

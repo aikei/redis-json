@@ -23,6 +23,10 @@ class RedisJson {
         this.settings = {
             ownClient: true
         }
+        /**
+         * @type {redis.RedisClient}
+         */
+        this.redisClient;
         if (options.redisClient) {
             this.settings.ownClient = false;
             this.redisClient = options.redisClient;
@@ -84,24 +88,31 @@ class RedisJson {
     /**
      * Sets a json key of a json object kept in a plain redis key (i.e. a key you can get with redis's `get` command).
      * @param {string} redisKey redis key where json object resides 
-     * @param {string} jsonKey key of the json object to set 
-     * @param {string} newValue new value of the key
+     * @param {...any} args list of any number of arguments in the following order:
+     *  - `arg_1`: json key name to set
+     *  - `arg_2`: value to set
+     * 
+     * `arg_2` may be followed by another `arg_1` or may be the last argument in
+     * the sequence. `arg_1` should always be followed by `arg_2`.
      * @returns {Promsie<string,string>} a Promise which resolves with an error string or a JSON string representing new object
      * oncce script has completed
      */
-    setKey(redisKey, jsonKey, newValue) {
-        debug("setKey %s -> %s = %s", redisKey, jsonKey, newValue);
+    setKey(redisKey, ...args) {
+        debug("setKey %s -> %j", redisKey, args);
         return new Promise((resolve) => {
-            let value = newValue;
-            switch(typeof newValue) {
-                case "string":
-                    value = `"${newValue}"`;
-                    break;
-                case "object":
-                    value = JSON.stringify(newValue);
-                    break;
+            for (let i = 1; i < args.length; i += 2) {
+                let value = args[i];
+                switch (typeof value) {
+                    case "string":
+                        value = `"${value}"`;
+                        break;
+                    case "object":
+                        value = JSON.stringify(value);
+                        break;
+                }
+                args[i] = value;
             }
-            this.redisClient.evalsha(this.scriptHashes.setJsonKey, "1", redisKey, jsonKey, value, (err, resp) => {
+            this.redisClient.evalsha(this.scriptHashes.setJsonKeys, "1", redisKey, ...args, (err, resp) => {
                 resolve(err || resp);
             });
         });
@@ -110,14 +121,23 @@ class RedisJson {
     /**
      * Increments by 1 json key of a json object stored in redis under plain key (i.e. key which you can get with redis's `get` command)
      * @param {string} redisKey redis key where json object is stored
-     * @param {string} jsonKey json key to increment by 1. value may be an actual json number or a number in a string
-     * @param {Promise<string,string>}a Promise which resolves with an error string or a JSON string representing new object
+     * @param {...any} args list of any number of arguments in the following order:
+     *  - `arg_1`: json key name to incrmenet
+     *  - `arg_2`: increment value
+     * 
+     * `arg_2` may be followed by another `arg_1` or may be the last argument in
+     * the sequence. `arg_1` should always be followed by `arg_2`, unless there is just 1 argument, in which case `arg_2` is
+     * assumed to be equal to 1 by default. 
+     * @returns {Promise<string,string>} a Promise which resolves with an error string or a JSON string representing new object
      * once script has been executed.
      */
-    incrKey(redisKey, jsonKey) {
-        debug("incrKey %s -> %s", redisKey, jsonKey);
+    incrKey(redisKey, ...args) {
+        debug("incrKey %s -> args: %j", redisKey, args);
+        if (args.length === 1) {
+            args.push(1);
+        }
         return new Promise((resolve) => {
-            this.redisClient.evalsha(this.scriptHashes.incrJsonKey, "1", redisKey, jsonKey, (err, resp) => {
+            this.redisClient.evalsha(this.scriptHashes.incrJsonKeys, "1", redisKey, ...args, (err, resp) => {
                 resolve(err || resp);
             });
         });
@@ -127,24 +147,31 @@ class RedisJson {
      * Sets a json key of a json object kept in a hash redis key (i.e. a key you can get with redis's `hget` command).
      * @param {string} redisKey redis key where hash object resides 
      * @param {string} hashKey hash key within the hash residing under `redisKey`, where json object resides
-     * @param {string} jsonKey key of the json object to set 
-     * @param {string} newValue new value of the key
+     * @param {...any} args list of any number of arguments in the following order:
+     *  - `arg_1`: json key name to set
+     *  - `arg_2`: value to set
+     * 
+     * `arg_2` may be followed by another `arg_1` or may be the last argument in
+     * the sequence. `arg_1` should always be followed by `arg_2`.
      * @returns {Promsie<string,string>} a Promise which resolves with an error string or a JSON string representing new object
      * oncce script has completed
      */
-    setHashKey(redisKey, hashKey, jsonKey, newValue) {
-        debug("setHashKey: %s.%s, jsonKey: %s = %s", redisKey, hashKey, jsonKey, newValue);
+    setHashKey(redisKey, hashKey, ...args) {
+        debug("setHashKey: %s.%s, args: %j", redisKey, hashKey, args);
         return new Promise((resolve) => {
-            let value = newValue;
-            switch(typeof newValue) {
-                case "string":
-                    value = `"${newValue}"`;
-                    break;
-                case "object":
-                    value = JSON.stringify(newValue);
-                    break;
+            for (let i = 1; i < args.length; i += 2) {
+                let value = args[i];
+                switch(typeof value) {
+                    case "string":
+                        value = `"${value}"`;
+                        break;
+                    case "object":
+                        value = JSON.stringify(value);
+                        break;
+                }
+                args[i] = value;
             }
-            this.redisClient.evalsha(this.scriptHashes.setHashKey, "2", redisKey, hashKey, jsonKey, value, (err, resp) => {
+            this.redisClient.evalsha(this.scriptHashes.setHashKeys, "2", redisKey, hashKey, ...args, (err, resp) => {
                 resolve(err || resp);
             });
         });
@@ -154,14 +181,23 @@ class RedisJson {
      * Increments by 1 a json key of a json object kept in a hash redis key (i.e. a key you can get with redis's `hget` command).
      * @param {string} redisKey redis key where hash object resides 
      * @param {string} hashKey hash key within the hash residing under `redisKey`, where json object resides
-     * @param {string} jsonKey key of the json object to set. its value should either be a number or a string convertible to number
+     * @param {...any} args list of any number of arguments in the following order:
+     *  - `arg_1`: json key name to increment,
+     *  - `arg_2`: value by which we want to increment the key.
+     * 
+     * `arg_2` may be followed by another `arg_1` or may be the last argument in
+     * the sequence. `arg_1` should always be followed by `arg_2`, unless there is just 1 argument, in which case `arg_2` is
+     * assumed to be equal to 1 by default. 
      * @returns {Promsie<string,string>} a Promise which resolves with an error string or a JSON string representing new object
      * oncce script has completed
      */
-    incrHashKey(redisKey, hashKey, jsonKey) {
-        debug("incrHashKey: %s -> %s, jsonKey: %s", redisKey, hashKey, jsonKey);
+    incrHashKey(redisKey, hashKey, ...args) {
+        debug("incrHashKey: %s -> %s, args: %j", redisKey, hashKey, args);
+        if (args.length === 1) {
+            args.push(1);
+        }
         return new Promise((resolve) => {
-            this.redisClient.evalsha(this.scriptHashes.incrHashKey, "2", redisKey, hashKey, jsonKey, (err, resp) => {
+            this.redisClient.evalsha(this.scriptHashes.incrHashKeys, "2", redisKey, hashKey, ...args, (err, resp) => {
                 resolve(err || resp);
             });
         });
@@ -171,8 +207,12 @@ class RedisJson {
         await Promise.all([
             this.loadScript("setHashKey", path.resolve(__dirname, "lua/set_hash_json_key.lua")),
             this.loadScript("incrHashKey", path.resolve(__dirname, "lua/increment_hash_json_key.lua")),
+            this.loadScript("incrHashKeys", path.resolve(__dirname, "lua/increment_hash_json_keys.lua")),
             this.loadScript("setJsonKey", path.resolve(__dirname, "lua/set_json_key.lua")),
-            this.loadScript("incrJsonKey", path.resolve(__dirname, "lua/increment_json_key.lua"))
+            this.loadScript("incrJsonKey", path.resolve(__dirname, "lua/increment_json_key.lua")),
+            this.loadScript("incrJsonKeys", path.resolve(__dirname, "lua/increment_json_keys.lua")),
+            this.loadScript("setJsonKeys", path.resolve(__dirname, "lua/set_json_keys.lua")),
+            this.loadScript("setHashKeys", path.resolve(__dirname, "lua/set_hash_json_keys.lua")),
         ]);
     }
 }

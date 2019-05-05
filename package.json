@@ -1,6 +1,6 @@
 {
   "name": "redis-json-set",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "description": "a library to manupulate json strings directly in redis",
   "main": "src/index.js",
   "directories": {
